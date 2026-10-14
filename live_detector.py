@@ -1,13 +1,12 @@
 
 
-
-import re
 import json
 import subprocess
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from detection_rules import detect_bruteforce
+from log_parser import parse_failed_login
 
 THRESHOLD = 3
 WINDOW = "5 minutes ago"
@@ -15,10 +14,6 @@ PROJECT_DIR = Path("/home/ashutosh/soc-bruteforce-detection")
 ALERT_FILE = PROJECT_DIR / "alerts.jsonl"
 STATE_FILE = PROJECT_DIR / ".alert_state.json"
 
-pattern = re.compile(
-    r"Failed password for .* from "
-    r"(?P<ip>\d{1,3}(?:\.\d{1,3}){3})"
-)
 
 result = subprocess.run(
     ["journalctl", "-u", "ssh", "--since", WINDOW,
@@ -27,9 +22,9 @@ result = subprocess.run(
 )
 
 counts = Counter(
-    match.group("ip")
+    ip
     for line in result.stdout.splitlines()
-    if (match := pattern.search(line))
+    if (ip := parse_failed_login(line)) is not None
 )
 
 try:
