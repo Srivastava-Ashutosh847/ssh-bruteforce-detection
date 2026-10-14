@@ -1,0 +1,65 @@
+
+
+
+import re
+import json
+import subprocess
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+THRESHOLD = 3
+WINDOW = "5 minutes ago"
+PROJECT_DIR = Path("/home/ashutosh/soc-bruteforce-detection")
+ALERT_FILE = PROJECT_DIR / "alerts.jsonl"
+STATE_FILE = PROJECT_DIR / ".alert_state.json"
+
+pattern = re.compile(
+    r"Failed password for .* from "
+    r"(?P<ip>\d{1,3}(?:\.\d{1,3}){3})"
+)
+
+result = subprocess.run(
+    ["journalctl", "-u", "ssh", "--since", WINDOW,
+     "--no-pager", "-o", "short-iso"],
+    capture_output=True, text=True, check=True
+)
+
+counts = Counter(
+    match.group("ip")
+    for line in result.stdout.splitlines()
+    if (match := pattern.search(line))
+)
+
+try:
+    state = json.loads(STATE_FILE.read_text())
+except (FileNotFoundError, json.JSONDecodeError):
+    state = {}
+
+for ip, count in counts.items():
+    if count < THRESHOLD:
+        state.pop(ip, None)
+        continue
+
+    if state.get(ip) == count:
+        continue
+
+    alert = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "alert": "Possible SSH brute-force activity",
+        "source_ip": ip,
+        "failed_attempts_in_window": count,
+        "window": "5 minutes",
+        "severity": "medium",
+        "status": "investigation_required"
+    }
+
+    with ALERT_FILE.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(alert) + "\n")
+
+    print(json.dumps(alert, indent=2))
+    state[ip] = count
+
+STATE_FILE.write_text(json.dumps(state))
+if not counts or all(count < THRESHOLD for count in counts.values()):
+    print("[INFO] No brute-force threshold reached.")
