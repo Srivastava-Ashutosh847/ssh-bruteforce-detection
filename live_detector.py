@@ -7,6 +7,7 @@ import subprocess
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from detection_rules import detect_bruteforce
 
 THRESHOLD = 3
 WINDOW = "5 minutes ago"
@@ -35,9 +36,10 @@ try:
     state = json.loads(STATE_FILE.read_text())
 except (FileNotFoundError, json.JSONDecodeError):
     state = {}
+detected = detect_bruteforce(counts, threshold=THRESHOLD)
 
 for ip, count in counts.items():
-    if count < THRESHOLD:
+    if ip not in detected:
         state.pop(ip, None)
         continue
 
