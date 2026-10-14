@@ -55,6 +55,11 @@ cat alerts.jsonl
 ```bash
 ./monitor.sh
 ```
+## Detection Evidence
+
+The screenshot below shows the detector identifying repeated SSH authentication failures and generating a security alert.
+
+![SSH brute-force detection alert](screenshots/screenshots_detection-alert.png)
 
 ## Sample Alert
 ```json
