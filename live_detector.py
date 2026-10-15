@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from detection_rules import detect_bruteforce
 from log_parser import parse_failed_login
+from alert_writer import write_alert
 
 THRESHOLD = 3
 WINDOW = "5 minutes ago"
@@ -41,15 +42,10 @@ for ip, count in counts.items():
     if state.get(ip) == count:
         continue
 
-    alert = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "alert": "Possible SSH brute-force activity",
-        "source_ip": ip,
-        "failed_attempts_in_window": count,
-        "window": "5 minutes",
-        "severity": "medium",
-        "status": "investigation_required"
-    }
+    alert = write_alert(ALERT_FILE, ip, count)
+
+    print(json.dumps(alert, indent=2))
+    state[ip] = count
 
     with ALERT_FILE.open("a", encoding="utf-8") as f:
         f.write(json.dumps(alert) + "\n")
